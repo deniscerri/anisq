@@ -1,4 +1,3 @@
-
 ## **ANISQ** - Download Anime Movies and TV Series with albanian subtitles.
 
 Better implementation of [Filma24-CLI] written in Python, and made for albanian anime.
@@ -13,19 +12,24 @@ Better implementation of [Filma24-CLI] written in Python, and made for albanian 
 
 `pip install anisq`
 
+- Make sure to install MPV player if you are planning to Stream content.
+- If You are having issues installing this package on Android [Termux] try installing these dependencies first
+
+      pkg install libxml2 libxslt libiconv
+
 ## Usage: <a name="Usage"></a>
 
 ### Download a movie or tv series
 
       anisq [Title or URL]
 
-### Download in automatic mode
+### Downloads without asking for a choice
 
-      anisq -a [Movie Title]
+      anisq -a [Title]
 
 ### Watch
 
-      anisq -w [Movie Title]
+      anisq -w [Title]
 
 ### Watch a movie, but let the script choose automatically
 
@@ -48,6 +52,11 @@ Better implementation of [Filma24-CLI] written in Python, and made for albanian 
       anisq [options] [query] -o [directory path]
 
 ---
+
+You can also use arguments such as -m or -t to make the script only search for movies or tv series. Make sure to write the title after the arguments.
+
+      anisq -m [title]
+      anisq -t [title] -s [nr] -e [nr]
 
 ### Using a List
 

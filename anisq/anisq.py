@@ -8,6 +8,7 @@ import os, re, sys, getopt
 import json
 import difflib
 import requests
+from time import sleep
 
 requests.packages.urllib3.disable_warnings(
     requests.packages.urllib3.exceptions.InsecureRequestWarning)
@@ -26,6 +27,7 @@ class Config:
 	query = ''
 	season = 0
 	episode = 0
+	episodes= None
 	media_type = ''
 	root_path = os.getcwd()
 	output_path = ''
@@ -95,14 +97,75 @@ def download(referer, video):
 		return 1
 	
 	if Config.watch:
-		os.system(f'vlc --http-referrer "{referer}" "{video}"')
-		sys.exit()
+		mpvTitle = Config.title
+		if Config.media_type == "seriale":
+			mpvTitle += f" S{Config.season}-E{Config.episode}"
+		
+		try:
+			os.system(f'mpv --referrer="{referer}" "{video}" --force-media-title="{mpvTitle}" --no-terminal')
+		except:
+			print(f"{Red}Couldn't find a suitable stream! :({White}")
+			return 1
+		
+		streaming(mpvTitle)
+		exit()
 	
 	if "m3u" in video:
 		os.system(f'ffmpeg -http_persistent 0 -nostdin -hide_banner -loglevel error -stats -headers "Referer: {referer}" -i "{video}" -c copy "{Config.output_path}" || true')
 	else:
 		os.system(f'ffmpeg -nostdin -hide_banner -loglevel error -stats -headers "Referer: {referer}" -i "{video}" -c copy "{Config.output_path}" || true')
 
+
+def streaming(mpvTitle):
+	os.system('clear') if os.name == 'posix' else os.system('cls')
+	print(f"{Blue}Streamed {mpvTitle}. {White}")
+
+	options = ['r', 'q']
+
+	if Config.media_type == "seriale":
+		if int(Config.episode) < len(Config.episodes):
+			print(f"{Red}[n]{White} Next Episode")
+			options.append('n')
+		if int(Config.episode) > 1:
+			print(f"{Red}[p]{White} Previous Episode")
+			options.append('q')
+		
+		print(f"{Red}[c]{White} Custom Episode number")
+		options.append('c')
+
+	
+	print(f"{Red}[r]{Green} Replay")
+	print(f"{Red}[q]{Green} Quit")
+
+	choice = input(White + f"Write your input: ")
+
+	if choice in options:
+		if(choice == "n"):
+			Config.episode = int(Config.episode) + 1
+			parse_embed(Config.episodes[int(Config.episode)]['url'])
+		elif(choice == "p"):
+			Config.episode = int(Config.episode) - 1
+			parse_embed(Config.episodes[int(Config.episode)-2]['url'])
+		elif(choice == "r"):
+			parse_embed(Config.episodes[int(Config.episode)-1]['url'])
+		elif(choice == "c"):
+			choice = input(White + f"Write a number between [{Red}1-{len(Config.episodes)}{White}]: ")
+			try:
+				choice = int(choice)
+			except:
+				choice = 0
+			while choice == 0 or int(choice) > len(Config.episodes):
+				choice = input("Wrong Input. Try Again: ")
+				try:
+					choice = int(choice)
+				except:
+					choice = 0
+			choice = int(choice)
+			Config.episode = choice
+			parse_embed(Config.episodes[choice-1]['url'])
+	else:
+		return
+	
 
 def clean_link(link):
 	if not link:
@@ -150,10 +213,11 @@ def parse_embed(URL):
 			season_nr = split_title[len(split_title)-1].split("x")[0]
 			episode_nr = split_title[len(split_title)-1].split("x")[1]
 			Config.output_path = f"{Config.root_path}/{Config.title}/{Config.title} - S{season_nr}E{episode_nr}.mkv"
-
+		
 			if os.path.exists(str(Config.output_path)):
 				print(f"{Green}Episode is Downloaded. {White}")
 				return 1
+
 		else:
 			Config.output_path = f"{Config.root_path}/{Config.title}.mkv"
 			fix_title()
@@ -221,6 +285,7 @@ def parse_seasons(URL):
 	Config.title = page.xpath("/html/body/div[1]/div[2]/div[4]/div[1]/div[1]/div[2]/h1/text()")[0]
 	if not Config.watch:
 			print("Creating Series Folder")
+			fix_title()
 			path = os.path.join(Config.root_path, Config.title)
 			if not os.path.exists(path):
 					os.makedirs(path)
@@ -233,6 +298,10 @@ def parse_seasons(URL):
 					if matcher in e['title']:
 							seasoned_episode_list.append(e)
 			episode_list = seasoned_episode_list
+	else:
+		Config.season = 1
+
+	Config.episodes = episode_list
 
 	if int(Config.episode) > 0:
 			matcher = "- " + Config.episode
@@ -248,10 +317,13 @@ def parse_seasons(URL):
 				chosen_ep = choose_episode(episode_list)
 				episode_list = []
 				episode_list.append(chosen_ep)
+		else:
+			Config.episode = 1
 
 	if Config.watch:
 			print(f"Starting stream for {Config.title} [{episode_list[0]['title']}]")
 			parse_embed(episode_list[0]['url'])
+			exit()
 
 	for e in episode_list:
 			print(f"{Blue}Downloading {Config.title} [{e['title']}] {White}")
@@ -271,7 +343,8 @@ def choose_episode(ep_list):
 		except:
 			choice = 0
 	choice = int(choice)
-	return ep_list[choice-1]
+	Config.episode = choice
+	return ep_list[choice - 1]
 
 def search():
 	query = re.sub(" ", "+", Config.query)
@@ -428,4 +501,4 @@ def main():
 			init_start()
 	else:
 		init_start()
-
+main()
