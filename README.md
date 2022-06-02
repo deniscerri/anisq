@@ -1,5 +1,30 @@
+# Cloudflare killed this tool, as well :/
 
+<br>
 
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
 
 ## **ANISQ** - Download Anime Movies and TV Series with albanian subtitles.
 
