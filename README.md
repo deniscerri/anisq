@@ -1,4 +1,4 @@
-# [DEPRECATED] Due to CloudFlare Protection
+
 
 
 ## **ANISQ** - Download Anime Movies and TV Series with albanian subtitles.
