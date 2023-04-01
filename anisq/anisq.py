@@ -9,15 +9,17 @@ import json
 import difflib
 import requests
 from time import sleep
+import subprocess
+
 
 requests.packages.urllib3.disable_warnings(
     requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 scraper = cloudscraper.create_scraper(
 	browser={
-		'browser': 'chrome',
-             	'platform': 'android',
-             	'desktop': False
+		'browser': 'firefox',
+             	'platform': 'windows',
+             	'mobile': False
      	}
 )
 
@@ -45,11 +47,8 @@ LYellow='\033[92m'
 LCyan='\033[96m'
 
 def request(URL):
-	try:
-		page = BeautifulSoup(scraper.get(URL).text, "html.parser")
-		return page
-	except:
-		return ''
+	page = BeautifulSoup(scraper.get(URL).text, "html.parser")
+	return page
 
 def post_request(URL):
 	return BeautifulSoup(scraper.post(URL).text, "html.parser")
@@ -110,10 +109,15 @@ def download(referer, video):
 		streaming(mpvTitle)
 		exit()
 	
-	if "m3u" in video:
-		os.system(f'ffmpeg -http_persistent 0 -nostdin -hide_banner -loglevel error -stats -headers "Referer: {referer}" -i "{video}" -c copy "{Config.output_path}" || true')
-	else:
-		os.system(f'ffmpeg -nostdin -hide_banner -loglevel error -stats -headers "Referer: {referer}" -i "{video}" -c copy "{Config.output_path}" || true')
+	response = 1
+	try:
+		if "m3u" in video:
+			response = subprocess.run(f'ffmpeg -http_persistent 0 -nostdin -hide_banner -loglevel error -stats -headers "Referer: {referer}" -i "{video}" -c copy "{Config.output_path}"', check = True)
+		else:
+			response = subprocess.run(f'ffmpeg -nostdin -hide_banner -loglevel error -stats -headers "Referer: {referer}" -i "{video}" -c copy "{Config.output_path}"', check = True)
+	except:
+		response = 1
+	return response
 
 
 def streaming(mpvTitle):
@@ -181,7 +185,7 @@ def clean_link(link):
 
 def generic_scraper(referer):
 	page = str(request(referer))
-	mp4 = re.findall(r'https://.*[^"].m3u8.*', page)
+	mp4 = re.findall(r'https://.*[^"].m3u8', page)
 
 	if not mp4:
 		mp4 = ['']
@@ -193,21 +197,20 @@ def parse_embed(URL):
 	soup = request(URL)
 	page_str = str(soup)
 	page = html.fromstring(page_str).getroottree()
+	referers = page.xpath('//*[@id="info"]/div/p[2]/a/@href')
 	
-	try:
-		referer = page.xpath('//*[@id="option-1"]/iframe/@src')[0]
-	except:
-		referer = page.xpath('//iframe/@src')[0]
-	
-
 	if Config.media_type == "filma":
-		embed_title = page.xpath("/html/body/div[1]/div[2]/div[3]/div[2]/div[2]/div[2]/h1/text()")[0]
+		embed_title = page.xpath('//*[@id="single"]/div[2]/div[2]/div[2]/h1/text()')[0]
 	else:
-		embed_title = page.xpath('//h1[@class="epih1"]/text()')[0]
+		embed_title = page.xpath('//*[@id="info"]/h1/text()')[0]
 	
 	fix_title()
 
 	if not Config.watch:
+		if (Config.title == ''):
+			Config.title = page.xpath('//*[@id="info"]/h1/text()')[0]
+			fix_title()
+
 		if Config.media_type == 'seriale':
 			split_title = str(embed_title).split(" ")
 			season_nr = split_title[len(split_title)-1].split("x")[0]
@@ -227,26 +230,29 @@ def parse_embed(URL):
 				return 1
 	
 	video = ''
-	if 'fembed' in referer or 'suzihaza' in referer or 'femax' in referer:
-		print(f"{LYellow}Trying to download from stream: {referer}{White}")
-		referer = re.sub("/v/", '/f/', referer)
-		videoid = re.sub(".*/f/", '', referer)
-
-		res = str(post_request(f'https://suzihaza.com/api/source/{videoid}'))
-		res = json.loads(res)
-
-		
-		try:
-			video = res['data'][len(res['data'])-1]['file']
-		except:
-			video = ''
-		download(referer, video)
-	
-	if video == '':
-		if 'mp4upload' in referer:
+	for referer in referers:
+		if 'fembed' in referer or 'suzihaza' in referer or 'femax' in referer:
 			print(f"{LYellow}Trying to download from stream: {referer}{White}")
-			video = mp4_upload(referer)
-			download(referer, video)
+			referer = re.sub("/v/", '/f/', referer)
+			videoid = re.sub(".*/f/", '', referer)
+			res = str(post_request(f'https://vanfem.com/api/source/{videoid}'))
+			res = json.loads(res)
+
+			
+			try:
+				video = res['data'][len(res['data'])-1]['file']
+			except:
+				video = ''
+			res = download(referer, video)
+			if (res == 0):
+				break
+		
+		elif 'mp4upload' in referer:
+				print(f"{LYellow}Trying to download from stream: {referer}{White}")
+				video = mp4_upload(referer)
+				res = download(referer, video)
+				if (res == 0):
+					break
 		else:
 			video = generic_scraper(referer)
 			
@@ -256,10 +262,12 @@ def parse_embed(URL):
 					referer = re.sub("\"", "", mp4u_href[0])
 					video = mp4_upload(referer)
 			print(f"{LYellow}Trying to download from stream: {referer}{White}")
-			download(referer, video)
+			res = download(referer, video)
+			if (res == 0):
+				break
 
-	if os.path.exists(Config.output_path):
-		return 1
+		if os.path.exists(Config.output_path):
+			return 1
 
 
 def fix_title():
@@ -282,7 +290,7 @@ def parse_seasons(URL):
 
 
 
-	Config.title = page.xpath("/html/body/div[1]/div[2]/div[4]/div[1]/div[1]/div[2]/h1/text()")[0]
+	Config.title = page.xpath('//*[@id="single"]/div[1]/div[1]/div[2]/h1/text()')[0]
 	if not Config.watch:
 			print("Creating Series Folder")
 			fix_title()
@@ -350,8 +358,7 @@ def search():
 	query = re.sub(" ", "+", Config.query)
 	page = str(request(f"{Config.base_url}/?s={query}"))
 	page = html.fromstring(page).getroottree()
-	result = page.xpath('//*[@id="contenedor"]/div[2]/div[1]/div/*[@class="result-item"]/article/div[2]/div[1]/a')
-	
+	result = page.xpath('//*[@id="contenedor"]/div[3]/div[1]/div/*[@class="result-item"]/article/div[2]/div[1]/a')
 	if not result:
 		print(f"{Red}No results found with this query :/{White}")
 		sys.exit()
@@ -431,7 +438,7 @@ def parse_title(result_url):
 
 def init_start():
 	if "http" in Config.query:
-		if "/filma/" in Config.query:
+		if "/filma/" in Config.query or "/episode/" in Config.query:
 			parse_embed(Config.query)
 		else:
 			parse_seasons(Config.query)
