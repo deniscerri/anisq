@@ -421,7 +421,7 @@ def search():
 			parse_title(result_list[choice-1]['url'])
 
 
-	if len(result_list) == 1:
+	elif len(result_list) == 1:
 		Config.media_type = result_list[0]['type']
 		Config.title = result_list[0]['title']
 		parse_title(result_list[0]['url'])
