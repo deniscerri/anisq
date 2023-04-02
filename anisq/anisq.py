@@ -218,16 +218,18 @@ def parse_embed(URL):
 			Config.output_path = f"{Config.root_path}/{Config.title}/{Config.title} - S{season_nr}E{episode_nr}.mkv"
 		
 			if os.path.exists(str(Config.output_path)):
-				print(f"{Green}Episode is Downloaded. {White}")
-				return 1
+				if is_file_incomplete():
+					print(f"{Green}Episode is Downloaded. {White}")
+					return 1
 
 		else:
 			Config.output_path = f"{Config.root_path}/{Config.title}.mkv"
 			fix_title()
 
 			if os.path.exists(str(Config.output_path)):
-				print(f"{Green}Movie is Downloaded. {White}")
-				return 1
+				if is_file_incomplete():
+					print(f"{Green}Movie is Downloaded. {White}")
+					return 1
 	
 	video = ''
 	for referer in referers:
@@ -267,8 +269,25 @@ def parse_embed(URL):
 				break
 
 		if os.path.exists(Config.output_path):
-			return 1
+			if is_file_incomplete():
+				return 1
 
+
+def is_file_incomplete():
+	try:
+		dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
+                             "format=duration", "-of",
+                             "default=noprint_wrappers=1:nokey=1", str(Config.output_path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT)
+		if float(dur.stdout) <= 600:
+			os.remove(str(Config.output_path))
+			return 0
+		else:
+			return 1
+	except:
+		os.remove(str(Config.output_path))
+		return 0
 
 def fix_title():
 	Config.title = re.sub(':', '', Config.title)
@@ -301,7 +320,7 @@ def parse_seasons(URL):
 	seasoned_episode_list = []
 	chosen_ep = 0
 	if int(Config.season) > 0:
-			matcher = Config.season + " - "
+			matcher = str(Config.season) + " - "
 			for e in episode_list:
 					if matcher in e['title']:
 							seasoned_episode_list.append(e)
@@ -312,7 +331,7 @@ def parse_seasons(URL):
 	Config.episodes = episode_list
 
 	if int(Config.episode) > 0:
-			matcher = "- " + Config.episode
+			matcher = "- " + str(Config.episode)
 			for e in episode_list:
 							if matcher in e['title']:
 									chosen_ep = e
