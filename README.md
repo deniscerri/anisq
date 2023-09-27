@@ -1,3 +1,5 @@
+## [THIS TOOL IS DEPRECATED AS THE SITE IS GONE]
+
 ## **ANISQ** - Download Anime Movies and TV Series with albanian subtitles.
 
 Better implementation of [Filma24-CLI] written in Python, and made for albanian anime.
